@@ -19,8 +19,6 @@ var houseModel = null;
 var bushModel = null;
 var gradeModel = null;
 var selectedObj = null;
-var selectedObjPos = new THREE.Vector3();
-var poses = [];
 var previousObject = null;
 var objectList = [];
 
@@ -47,17 +45,51 @@ var meshRX = folder2.add( params, 'rx' ).min(-10).max(10).step(1).listen();
 var meshRY = folder2.add( params, 'ry' ).min(-10).max(10).step(1).listen();
 var meshRZ = folder2.add( params, 'rz' ).min(-10).max(10).step(1).listen();
 
+meshSX.onChange(function(value) {
+    if(previousObject != null){
+        previousObject.scale.set(value/50, params.sy/50, params.sz/50);
+        var size = new THREE.Vector3();
+        previousObject.userData.box.setFromObject(previousObject);
+        previousObject.userData.box.getSize(size);
+        previousObject.userData.cube.scale.set(size.x, size.y, size.z);
+        previousObject.userData.box.getSize(previousObject.userData.obb.halfSize).multiplyScalar(0.5);
+    }
+});
+meshSY.onChange(function(value) {
+    if(previousObject != null){
+        previousObject.scale.set(params.sx/50, value/50, params.sz/50);
+        var size = new THREE.Vector3();
+        previousObject.userData.box.setFromObject(previousObject);
+        previousObject.userData.box.getSize(size);
+        previousObject.userData.cube.scale.set(size.x, size.y, size.z);
+        previousObject.userData.box.getSize(previousObject.userData.obb.halfSize).multiplyScalar(0.5);
+    }
+});
+meshSZ.onChange(function(value) {
+    if(previousObject != null){
+        previousObject.scale.set(params.sx/50, params.sy/50, value/50);
+        var size = new THREE.Vector3();
+        previousObject.userData.box.setFromObject(previousObject);
+        previousObject.userData.box.getSize(size);
+        previousObject.userData.cube.scale.set(size.x, size.y, size.z);
+        previousObject.userData.box.getSize(previousObject.userData.obb.halfSize).multiplyScalar(0.5);
+    }
+});
+
 meshRX.onChange(function(value) {
     previousObject.rotateX(value/180);
     previousObject.userData.cube.rotateY(value/180);
+    previousObject.userData.obb.basis.extractRotation(previousObject.matrixWorld);
 });
 meshRY.onChange(function(value) {
     previousObject.rotateY(value/180);
     previousObject.userData.cube.rotateY(value/180);
+    previousObject.userData.obb.basis.extractRotation(previousObject.matrixWorld);
 });
 meshRZ.onChange(function(value) {
     previousObject.rotateZ(value/180);
     previousObject.userData.cube.rotateZ(value/180);
+    previousObject.userData.obb.basis.extractRotation(previousObject.matrixWorld);
 });
 
 var cubeVisible = gui.add( params, 'brush' ).name('brush').listen();
@@ -109,17 +141,12 @@ function init()
     renderer.domElement.addEventListener('wheel',onDocumentMouseScroll,false);
     renderer.domElement.addEventListener("contextmenu", function (event){ event.preventDefault(); });
 
-    var helper = new THREE.CameraHelper(light.shadow.camera);
-    //scene.add( helper );
-
     mixer = new THREE.AnimationMixer( scene );
     CreateGeometry();
     addCursor();
     addCircle();
     loadModel('models/', 'Cyprys_House.obj', 'Cyprys_House.mtl', 1);
     loadModel('models/', 'Tree.obj', 'Tree.mtl', 1);
-    //loadModel('models/', 'grade.obj', 'grade.mtl', 1);
-    //spawnModels();
     gui.open();
 }
 
@@ -130,14 +157,11 @@ function onDocumentMouseScroll( event ) {
         radius++;
     circle.scale.set(radius, 1, radius);
 }
-var mx;
-var my;
+
 function onDocumentMouseMove( event ) {
     mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
     mouse.y = -( event.clientY / window.innerHeight ) * 2 + 1;
 
-    if(selectedObj != null)
-        selectedObjPos = selectedObj.position;
 
     var vector = new THREE.Vector3( mouse.x, mouse.y, 1 );
     vector.unproject(camera);
@@ -166,17 +190,20 @@ function onDocumentMouseMove( event ) {
                     if(x >= 0 && x < N && z>=0 && z < N){
                         var y = geom.vertices[z+x*N].y;
                         circle.geometry.vertices[i].y = y + 0.1;
+                        
                     }else
                         circle.geometry.vertices[i].y = 0;
                 }
                 circle.geometry.verticesNeedUpdate = true;
+                
             }
         }
     }else{
-        //if(intersects.length > 0)
+        
             if(selectedObj != null){
-                //selectedObjPos = selectedObj.position;
-               
+                
+                var oldpos = new THREE.Vector3();
+                oldpos.copy(selectedObj.position)
                 selectedObj.position.copy(intersects[0].point);
                 selectedObj.userData.box.setFromObject(selectedObj);
                 var pos = new THREE.Vector3();
@@ -188,19 +215,12 @@ function onDocumentMouseMove( event ) {
                     if(selectedObj.userData.cube != objectList[i]){
                         if(intersect(objectList[i].userData.model.userData, selectedObj.userData) == true){
                             console.log("intersect");
-                            selectedObj.position.copy(poses[5]);
+                            selectedObj.position.copy(oldpos);
                             selectedObj.userData.box.setFromObject(selectedObj);
                             var pos = new THREE.Vector3();
                             selectedObj.userData.box.getCenter(pos);
                             selectedObj.userData.cube.position.copy(pos);
                             selectedObj.userData.obb.position.copy(pos);
-                        }else{
-                            poses.push(intersects[0].point);
-                            if(poses.length > 10){
-                                poses.shift();
-                            }
-                            
-                            selectedObjPos = selectedObj.position; 
                         }
                     }
                 }
@@ -445,11 +465,7 @@ function createBush(){
     }
 }
 
-// function createGrade(){
-    
-//     scene.add(gradeModel.clone());
-//     objectList.push(gradeModel.clone());
-// }
+
 
 function delMesh(){
     var ind = objectList.indexOf(previousObject);
@@ -739,14 +755,6 @@ function animate()
 function render()
 {
     renderer.render( scene, camera );
-    // if(previousObject != null){
-    //     previousObject.scale.set(params.sx/50, params.sy/50, params.sz/50);
-    //     var size = new THREE.Vector3();
-        
-    //     previousObject.userData.box.getSize(size);
-    //     previousObject.userData.cube.scale.set(size.x, size.y, size.z);
-    // }
-    //previousObject.userData.obb.scale.set(params.sx/50, params.sy/50, params.sz/50);
 }
 
 
