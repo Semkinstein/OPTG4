@@ -15,16 +15,25 @@ var circle;
 var radius = 10;
 var brushDirection = 0; 
 
+var houseModel = null;
+var bushModel = null;
+var gradeModel = null;
 var selectedObj = null;
+var selectedObjPos = new THREE.Vector3();
+var poses = [];
+var previousObject = null;
 var objectList = [];
 
 var gui = new dat.GUI();
 gui.width = 200;
 var params =
 {
-    sx: 0, sy: 0, sz: 0,
+    sx: 50, sy: 50, sz: 50,
+    rx: 0, ry: 0, rz: 0,
     brush: true,
-    addHouse: function() { loadModel('models/', 'Cyprys_House.obj', 'Cyprys_House.mtl', 1) },
+    addHouse: function() { createHouse() },
+    addBush: function() { createBush() },
+    addGrade: function() { createGrade() },
     del: function() { delMesh() }
 };
 
@@ -32,6 +41,24 @@ var folder1 = gui.addFolder('Scale');
 var meshSX = folder1.add( params, 'sx' ).min(1).max(100).step(1).listen();
 var meshSY = folder1.add( params, 'sy' ).min(1).max(100).step(1).listen();
 var meshSZ = folder1.add( params, 'sz' ).min(1).max(100).step(1).listen();
+
+var folder2 = gui.addFolder('Rotation');
+var meshRX = folder2.add( params, 'rx' ).min(-10).max(10).step(1).listen();
+var meshRY = folder2.add( params, 'ry' ).min(-10).max(10).step(1).listen();
+var meshRZ = folder2.add( params, 'rz' ).min(-10).max(10).step(1).listen();
+
+meshRX.onChange(function(value) {
+    previousObject.rotateX(value/180);
+    previousObject.userData.cube.rotateY(value/180);
+});
+meshRY.onChange(function(value) {
+    previousObject.rotateY(value/180);
+    previousObject.userData.cube.rotateY(value/180);
+});
+meshRZ.onChange(function(value) {
+    previousObject.rotateZ(value/180);
+    previousObject.userData.cube.rotateZ(value/180);
+});
 
 var cubeVisible = gui.add( params, 'brush' ).name('brush').listen();
 cubeVisible.onChange(function(value)
@@ -41,6 +68,8 @@ cubeVisible.onChange(function(value)
 });
 
 gui.add( params, 'addHouse' ).name( "add house" );
+gui.add( params, 'addBush' ).name( "add bush" );
+
 gui.add( params, 'del' ).name( "delete" );
 
 
@@ -55,7 +84,7 @@ function init()
 
     var light = new THREE.DirectionalLight(0xffffff);
     
-    light.position.set( 1500, 500, 1000);
+    light.position.set( 1500, 500, -1000);
     light.target = new THREE.Object3D();
     light.target.position.set(  N/2, 0, N/2 );
     scene.add(light.target);
@@ -87,6 +116,9 @@ function init()
     CreateGeometry();
     addCursor();
     addCircle();
+    loadModel('models/', 'Cyprys_House.obj', 'Cyprys_House.mtl', 1);
+    loadModel('models/', 'Tree.obj', 'Tree.mtl', 1);
+    //loadModel('models/', 'grade.obj', 'grade.mtl', 1);
     //spawnModels();
     gui.open();
 }
@@ -98,10 +130,14 @@ function onDocumentMouseScroll( event ) {
         radius++;
     circle.scale.set(radius, 1, radius);
 }
-
+var mx;
+var my;
 function onDocumentMouseMove( event ) {
     mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
     mouse.y = -( event.clientY / window.innerHeight ) * 2 + 1;
+
+    if(selectedObj != null)
+        selectedObjPos = selectedObj.position;
 
     var vector = new THREE.Vector3( mouse.x, mouse.y, 1 );
     vector.unproject(camera);
@@ -139,10 +175,38 @@ function onDocumentMouseMove( event ) {
     }else{
         //if(intersects.length > 0)
             if(selectedObj != null){
-                selectedObj.position.copy(intersects[o].point);
-                console.log(selectedObj);
+                //selectedObjPos = selectedObj.position;
+               
+                selectedObj.position.copy(intersects[0].point);
+                selectedObj.userData.box.setFromObject(selectedObj);
+                var pos = new THREE.Vector3();
+                selectedObj.userData.box.getCenter(pos);
+                selectedObj.userData.cube.position.copy(pos);
+                selectedObj.userData.obb.position.copy(pos);
+                
+                for(var i = 0; i < objectList.length; i++){
+                    if(selectedObj.userData.cube != objectList[i]){
+                        if(intersect(objectList[i].userData.model.userData, selectedObj.userData) == true){
+                            console.log("intersect");
+                            selectedObj.position.copy(poses[5]);
+                            selectedObj.userData.box.setFromObject(selectedObj);
+                            var pos = new THREE.Vector3();
+                            selectedObj.userData.box.getCenter(pos);
+                            selectedObj.userData.cube.position.copy(pos);
+                            selectedObj.userData.obb.position.copy(pos);
+                        }else{
+                            poses.push(intersects[0].point);
+                            if(poses.length > 10){
+                                poses.shift();
+                            }
+                            
+                            selectedObjPos = selectedObj.position; 
+                        }
+                    }
+                }
             }
     }
+    
 }
 
 function onDocumentMouseDown( event ) {
@@ -159,12 +223,25 @@ function onDocumentMouseDown( event ) {
         vector.unproject(camera);
         var ray = new THREE.Raycaster( camera.position, vector.sub( camera.position ).normalize() );
         var intersects = ray.intersectObjects( objectList, true );
-        var arrowHelper = new THREE.ArrowHelper( vector, camera.position, vector.distanceTo(camera.position), 0xffff00 );
-        scene.add( arrowHelper );
+    
         if ( intersects.length > 0 ){
-            selectedObj = intersects[0].object.parent;
+            selectedObj = intersects[0].object.userData.model;
+            selectedObj.userData.cube.material.visible = true;
+            selectedObjPos = selectedObj.position;
             console.log(selectedObj);
         }
+    }
+}
+
+
+
+function onDocumentMouseUp( event ) {
+    if(params.brush == true){
+        brushDirection = 0;
+    }else{
+        previousObject = selectedObj;
+        selectedObj.userData.cube.material.visible = false;
+        selectedObj = null;
     }
 }
 
@@ -185,14 +262,6 @@ function bruh(coeff){
     geom.computeVertexNormals(); 
     geom.verticesNeedUpdate = true; 
     geom.normalsNeedUpdate = true;
-}
-
-function onDocumentMouseUp( event ) {
-    if(params.brush == true){
-        brushDirection = 0;
-    }else{
-        selectedObj = null;
-    }
 }
 
 function addCircle(){
@@ -303,23 +372,92 @@ function CreateGeometry(){
         };
    
 }
+///////// Bounding box
 
-function delMesh(){
-    mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
-    mouse.y = -( event.clientY / window.innerHeight ) * 2 + 1;
+function createBB(model){
+    var box = new THREE.Box3();
+    box.setFromObject(model);
+    model.userData.box = box;
 
-    var vector = new THREE.Vector3( mouse.x, mouse.y, 1 );
-    vector.unproject(camera);
-    var ray = new THREE.Raycaster( camera.position, vector.sub( camera.position ).normalize() );
-    var link = ray.intersectObjects( objectList, true );
-    console.log(link);
-    var ind = objectList.indexOf(link);
-    //если такой индекс существует, удаление одного эллемента из массива
-    if (~ind) objectList.splice(ind, 1);
-    //удаление из сцены объекта, на который ссылается link
-    scene.remove(link); 
+    var geometry = new THREE.BoxGeometry( 1, 1, 1 );
+    var material = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
+    var cube = new THREE.Mesh( geometry, material );
+    scene.add( cube );
+
+    
+    /////// AABB
+    var pos = new THREE.Vector3();
+    model.userData.box.getCenter(pos);
+    //получение размеров объекта
+    var size = new THREE.Vector3();
+    model.userData.box.getSize(size);
+    //установка позиции и размера объекта в куб
+    cube.position.copy(pos);
+    cube.scale.set(size.x, size.y, size.z);
+
+    var obb = {};
+    //структура состоит из матрицы поворота, позиции и половины размера
+    obb.basis = new THREE.Matrix4();
+    obb.halfSize = new THREE.Vector3();
+    obb.position = new THREE.Vector3();
+    //получение позиции центра объекта
+    model.userData.box.getCenter(obb.position);
+    //получение размеров объекта
+    model.userData.box.getSize(obb.halfSize).multiplyScalar(0.5);
+    //получение матрицы поворота объекта
+    obb.basis.extractRotation(model.matrixWorld);
+    //структура хранится в поле userData объекта
+    model.userData.obb = obb;
+
+    model.userData.cube = cube;
+    cube.userData.model = model;
+    
+    cube.material.visible = false;
+    scene.add(model);
+    objectList.push(model.userData.cube);
 }
 
+function createHouse(){
+    if(houseModel != null){
+        var model = houseModel.clone();
+        var x = Math.random() * N;
+        var z = Math.random() * N;
+        var y = calcHeight(x, z);
+        model.position.x = x;
+        model.position.y = y;
+        model.position.z = z;
+
+        createBB(model);
+    }
+}
+
+function createBush(){
+    if(bushModel != null){
+        var model = bushModel.clone();
+        var x = Math.random() * N;
+        var z = Math.random() * N;
+        var y = calcHeight(x, z);
+        model.position.x = x;
+        model.position.y = y;
+        model.position.z = z;
+
+        createBB(model);
+    }
+}
+
+// function createGrade(){
+    
+//     scene.add(gradeModel.clone());
+//     objectList.push(gradeModel.clone());
+// }
+
+function delMesh(){
+    var ind = objectList.indexOf(previousObject);
+    if (~ind) objectList.splice(ind, 1);
+    scene.remove(previousObject); 
+}
+
+///////// Добавление моделей
 
 function loadModel(path, oname, mname, count)
 {
@@ -347,7 +485,7 @@ function loadModel(path, oname, mname, count)
             for(var i = 0; i<count; i++){
                 
 
-                //object.scale.set(0.2, 0.2, 0.2);
+                //object.scale.set(2, 2, 2);
                 object.traverse( function ( child )
                 {
                     if ( child instanceof THREE.Mesh )
@@ -367,9 +505,20 @@ function loadModel(path, oname, mname, count)
                 object.position.z = z;
                 //model.receiveShadow = true;
                 object.castShadow = true;
-                scene.add( object.clone() );
+                var model = object.clone();
+                if(oname == 'Cyprys_House.obj'){
+                    houseModel = model;
+                    //model.scale.set(2, 2, 2);
+                }
+                if(oname == 'Tree.obj'){
+                    bushModel = model;
+                    //model.scale.set(0.2, 0.2, 0.2);
+                }
+                
+                //scene.add( model );
+                //return model;
                 //targetList.push(model.clone());
-                objectList.push(object.clone());
+                //objectList.push(model);
             }
 
         }, onProgress, onError );
@@ -377,6 +526,11 @@ function loadModel(path, oname, mname, count)
 }
 
 
+function delMesh(){
+    var ind = objectList.indexOf(previousObject);
+    if (~ind) objectList.splice(ind, 1);
+    scene.remove(previousObject); 
+}
 
 function calcHeight(x, z){
     return geom.vertices[Math.round(z) + Math.round(x) * N].y;
@@ -394,7 +548,174 @@ async function spawnModels(){
     loadModel('models/', 'Cyprys_House.obj', 'Cyprys_House.mtl', 1);
 }
 
+function intersect(ob1, ob2)
+{
+    var xAxisA = new THREE.Vector3();
+    var yAxisA = new THREE.Vector3();
+    var zAxisA = new THREE.Vector3();
+    var xAxisB = new THREE.Vector3();
+    var yAxisB = new THREE.Vector3();
+    
+    var zAxisB = new THREE.Vector3();
+    var translation = new THREE.Vector3();
+    var vector = new THREE.Vector3();
 
+    var axisA = [];
+    var axisB = [];
+    var rotationMatrix = [ [], [], [] ];
+    var rotationMatrixAbs = [ [], [], [] ];
+    var _EPSILON = 1e-3;
+
+    var halfSizeA, halfSizeB;
+    var t, i;
+
+    ob1.obb.basis.extractBasis( xAxisA, yAxisA, zAxisA );
+    ob2.obb.basis.extractBasis( xAxisB, yAxisB, zAxisB );
+
+    // push basis vectors into arrays, so you can access them via indices
+    axisA.push( xAxisA, yAxisA, zAxisA );
+    axisB.push( xAxisB, yAxisB, zAxisB );
+    // get displacement vector
+    vector.subVectors( ob2.obb.position, ob1.obb.position );
+    // express the translation vector in the coordinate frame of the current
+    // OBB (this)
+    for ( i = 0; i < 3; i++ )
+    {
+    translation.setComponent( i, vector.dot( axisA[ i ] ) );
+    }
+    // generate a rotation matrix that transforms from world space to the
+    // OBB's coordinate space
+    for ( i = 0; i < 3; i++ )
+    {
+    for ( var j = 0; j < 3; j++ )
+    {
+    rotationMatrix[ i ][ j ] = axisA[ i ].dot( axisB[ j ] );
+    rotationMatrixAbs[ i ][ j ] = Math.abs( rotationMatrix[ i ][ j ] ) + _EPSILON;
+    }
+    }
+    // test the three major axes of this OBB
+    for ( i = 0; i < 3; i++ )
+    {
+    vector.set( rotationMatrixAbs[ i ][ 0 ], rotationMatrixAbs[ i ][ 1 ], rotationMatrixAbs[ i ][ 2 ]
+    );
+    halfSizeA = ob1.obb.halfSize.getComponent( i );
+    halfSizeB = ob2.obb.halfSize.dot( vector );
+    
+    
+    if ( Math.abs( translation.getComponent( i ) ) > halfSizeA + halfSizeB )
+    {
+    return false;
+    }
+    }
+    // test the three major axes of other OBB
+    for ( i = 0; i < 3; i++ )
+    {
+    vector.set( rotationMatrixAbs[ 0 ][ i ], rotationMatrixAbs[ 1 ][ i ], rotationMatrixAbs[ 2 ][ i ] );
+    halfSizeA = ob1.obb.halfSize.dot( vector );
+    halfSizeB = ob2.obb.halfSize.getComponent( i );
+    vector.set( rotationMatrix[ 0 ][ i ], rotationMatrix[ 1 ][ i ], rotationMatrix[ 2 ][ i ] );
+    t = translation.dot( vector );
+    if ( Math.abs( t ) > halfSizeA + halfSizeB )
+    {
+    return false;
+    }
+    }
+    // test the 9 different cross-axes
+    // A.x <cross> B.x
+    halfSizeA = ob1.obb.halfSize.y * rotationMatrixAbs[ 2 ][ 0 ] + ob1.obb.halfSize.z *
+    rotationMatrixAbs[ 1 ][ 0 ];
+    halfSizeB = ob2.obb.halfSize.y * rotationMatrixAbs[ 0 ][ 2 ] + ob2.obb.halfSize.z *
+    rotationMatrixAbs[ 0 ][ 1 ];
+    t = translation.z * rotationMatrix[ 1 ][ 0 ] - translation.y * rotationMatrix[ 2 ][ 0 ];
+    if ( Math.abs( t ) > halfSizeA + halfSizeB )
+    {
+    return false;
+    }
+    // A.x < cross> B.y
+    halfSizeA = ob1.obb.halfSize.y * rotationMatrixAbs[ 2 ][ 1 ] + ob1.obb.halfSize.z *
+    rotationMatrixAbs[ 1 ][ 1 ];
+    halfSizeB = ob2.obb.halfSize.x * rotationMatrixAbs[ 0 ][ 2 ] + ob2.obb.halfSize.z *
+    rotationMatrixAbs[ 0 ][ 0 ];
+    t = translation.z * rotationMatrix[ 1 ][ 1 ] - translation.y * rotationMatrix[ 2 ][ 1 ];
+    if ( Math.abs( t ) > halfSizeA + halfSizeB )
+    {
+    return false;
+    }
+    
+    // A.x <cross> B.z
+    halfSizeA = ob1.obb.halfSize.y * rotationMatrixAbs[ 2 ][ 2 ] + ob1.obb.halfSize.z *
+    rotationMatrixAbs[ 1 ][ 2 ];
+    halfSizeB = ob2.obb.halfSize.x * rotationMatrixAbs[ 0 ][ 1 ] + ob2.obb.halfSize.y *
+    rotationMatrixAbs[ 0 ][ 0 ];
+    t = translation.z * rotationMatrix[ 1 ][ 2 ] - translation.y * rotationMatrix[ 2 ][ 2 ];
+    if ( Math.abs( t ) > halfSizeA + halfSizeB )
+    {
+    return false;
+    }
+    // A.y <cross> B.x
+    halfSizeA = ob1.obb.halfSize.x * rotationMatrixAbs[ 2 ][ 0 ] + ob1.obb.halfSize.z *
+    rotationMatrixAbs[ 0 ][ 0 ];
+    halfSizeB = ob2.obb.halfSize.y * rotationMatrixAbs[ 1 ][ 2 ] + ob2.obb.halfSize.z *
+    rotationMatrixAbs[ 1 ][ 1 ];
+    t = translation.x * rotationMatrix[ 2 ][ 0 ] - translation.z * rotationMatrix[ 0 ][ 0 ];
+    if ( Math.abs( t ) > halfSizeA + halfSizeB )
+    {
+    return false;
+    }
+    // A.y <cross> B.y
+    halfSizeA = ob1.obb.halfSize.x * rotationMatrixAbs[ 2 ][ 1 ] + ob1.obb.halfSize.z *
+    rotationMatrixAbs[ 0 ][ 1 ];
+    halfSizeB = ob2.obb.halfSize.x * rotationMatrixAbs[ 1 ][ 2 ] + ob2.obb.halfSize.z *
+    rotationMatrixAbs[ 1 ][ 0 ];
+    t = translation.x * rotationMatrix[ 2 ][ 1 ] - translation.z * rotationMatrix[ 0 ][ 1 ];
+    if ( Math.abs( t ) > halfSizeA + halfSizeB )
+    {
+    return false;
+    }
+    // A.y <cross> B.z
+    halfSizeA = ob1.obb.halfSize.x * rotationMatrixAbs[ 2 ][ 2 ] + ob1.obb.halfSize.z *
+    rotationMatrixAbs[ 0 ][ 2 ];
+    halfSizeB = ob2.obb.halfSize.x * rotationMatrixAbs[ 1 ][ 1 ] + ob2.obb.halfSize.y *
+    rotationMatrixAbs[ 1 ][ 0 ];
+    t = translation.x * rotationMatrix[ 2 ][ 2 ] - translation.z * rotationMatrix[ 0 ][ 2 ];
+    if ( Math.abs( t ) > halfSizeA + halfSizeB )
+    {
+    return false;
+    }
+    
+    // A.z <cross> B.x
+    halfSizeA = ob1.obb.halfSize.x * rotationMatrixAbs[ 1 ][ 0 ] + ob1.obb.halfSize.y *
+    rotationMatrixAbs[ 0 ][ 0 ];
+    halfSizeB = ob2.obb.halfSize.y * rotationMatrixAbs[ 2 ][ 2 ] + ob2.obb.halfSize.z *
+    rotationMatrixAbs[ 2 ][ 1 ];
+    t = translation.y * rotationMatrix[ 0 ][ 0 ] - translation.x * rotationMatrix[ 1 ][ 0 ];
+    if ( Math.abs( t ) > halfSizeA + halfSizeB )
+    {
+    return false;
+    }
+    // A.z <cross> B.y
+    halfSizeA = ob1.obb.halfSize.x * rotationMatrixAbs[ 1 ][ 1 ] + ob1.obb.halfSize.y *
+    rotationMatrixAbs[ 0 ][ 1 ];
+    halfSizeB = ob2.obb.halfSize.x * rotationMatrixAbs[ 2 ][ 2 ] + ob2.obb.halfSize.z *
+    rotationMatrixAbs[ 2 ][ 0 ];
+    t = translation.y * rotationMatrix[ 0 ][ 1 ] - translation.x * rotationMatrix[ 1 ][ 1 ];
+    if ( Math.abs( t ) > halfSizeA + halfSizeB )
+    {
+    return false;
+    }
+    // A.z <cross> B.z
+    halfSizeA = ob1.obb.halfSize.x * rotationMatrixAbs[ 1 ][ 2 ] + ob1.obb.halfSize.y *
+    rotationMatrixAbs[ 0 ][ 2 ];
+    halfSizeB = ob2.obb.halfSize.x * rotationMatrixAbs[ 2 ][ 1 ] + ob2.obb.halfSize.y *
+    rotationMatrixAbs[ 2 ][ 0 ];
+    t = translation.y * rotationMatrix[ 0 ][ 2 ] - translation.x * rotationMatrix[ 1 ][ 2 ];
+    if ( Math.abs( t ) > halfSizeA + halfSizeB )
+    {
+    return false;
+    }
+    // no separating axis exists, so the two OBB don't intersect
+    return true;
+}
 
 ////////////////////////////////////////////////////
 function onWindowResize()
@@ -403,10 +724,6 @@ function onWindowResize()
     camera.updateProjectionMatrix();
     renderer.setSize( window.innerWidth, window.innerHeight );
 }
-
-
-
-
 
 function animate()
 {
@@ -422,7 +739,14 @@ function animate()
 function render()
 {
     renderer.render( scene, camera );
-
+    // if(previousObject != null){
+    //     previousObject.scale.set(params.sx/50, params.sy/50, params.sz/50);
+    //     var size = new THREE.Vector3();
+        
+    //     previousObject.userData.box.getSize(size);
+    //     previousObject.userData.cube.scale.set(size.x, size.y, size.z);
+    // }
+    //previousObject.userData.obb.scale.set(params.sx/50, params.sy/50, params.sz/50);
 }
 
 
