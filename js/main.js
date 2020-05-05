@@ -53,6 +53,18 @@ meshSX.onChange(function(value) {
         previousObject.userData.box.getSize(size);
         previousObject.userData.cube.scale.set(size.x, size.y, size.z);
         previousObject.userData.box.getSize(previousObject.userData.obb.halfSize).multiplyScalar(0.5);
+
+        // previousObject.updateMatrixWorld();
+
+        // // extract the rotation matrix
+        // const rotMat = new THREE.Matrix4();
+        // previousObject.matrixWorld.extractRotation(rotMat);
+
+        // //previousObject.userData.cube.applyMatrix4(rotMat);
+        // // extract the rotation
+        // const euler = new THREE.Euler();
+        // euler.setFromRotationMatrix(rotMat);
+        // previousObject.userData.cube.position.applyEuler(euler);
     }
 });
 meshSY.onChange(function(value) {
@@ -78,7 +90,7 @@ meshSZ.onChange(function(value) {
 
 meshRX.onChange(function(value) {
     previousObject.rotateX(value/180);
-    previousObject.userData.cube.rotateY(value/180);
+    previousObject.userData.cube.rotateX(value/180);
     previousObject.userData.obb.basis.extractRotation(previousObject.matrixWorld);
 });
 meshRY.onChange(function(value) {
@@ -201,7 +213,6 @@ function onDocumentMouseMove( event ) {
     }else{
         
             if(selectedObj != null){
-                
                 var oldpos = new THREE.Vector3();
                 oldpos.copy(selectedObj.position)
                 selectedObj.position.copy(intersects[0].point);
@@ -471,6 +482,8 @@ function delMesh(){
     var ind = objectList.indexOf(previousObject);
     if (~ind) objectList.splice(ind, 1);
     scene.remove(previousObject); 
+    scene.remove(previousObject.userData.cube);
+    scene.remove(previousObject.userData.box);
 }
 
 ///////// Добавление моделей
@@ -542,11 +555,7 @@ function loadModel(path, oname, mname, count)
 }
 
 
-function delMesh(){
-    var ind = objectList.indexOf(previousObject);
-    if (~ind) objectList.splice(ind, 1);
-    scene.remove(previousObject); 
-}
+
 
 function calcHeight(x, z){
     return geom.vertices[Math.round(z) + Math.round(x) * N].y;
