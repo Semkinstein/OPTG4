@@ -48,58 +48,79 @@ var meshRZ = folder2.add( params, 'rz' ).min(-10).max(10).step(1).listen();
 meshSX.onChange(function(value) {
     if(previousObject != null){
         previousObject.scale.set(value/50, params.sy/50, params.sz/50);
-        var size = new THREE.Vector3();
         previousObject.userData.box.setFromObject(previousObject);
+        var pos = new THREE.Vector3();
+        previousObject.userData.box.getCenter(pos);
+        var size = new THREE.Vector3();
         previousObject.userData.box.getSize(size);
         previousObject.userData.cube.scale.set(size.x, size.y, size.z);
         previousObject.userData.box.getSize(previousObject.userData.obb.halfSize).multiplyScalar(0.5);
-
-        // previousObject.updateMatrixWorld();
+        previousObject.userData.cube.position.copy(pos);
+         previousObject.updateMatrixWorld();
 
         // // extract the rotation matrix
-        // const rotMat = new THREE.Matrix4();
-        // previousObject.matrixWorld.extractRotation(rotMat);
+        //  const rotMat = new THREE.Matrix4();
+        //  previousObject.matrixWorld.extractRotation(rotMat);
 
-        // //previousObject.userData.cube.applyMatrix4(rotMat);
+        // previousObject.userData.cube.applyMatrix4(rotMat);
+        // previousObject.updateMatrixWorld();
         // // extract the rotation
-        // const euler = new THREE.Euler();
-        // euler.setFromRotationMatrix(rotMat);
-        // previousObject.userData.cube.position.applyEuler(euler);
+        //  const euler = new THREE.Euler();
+        //  euler.setFromRotationMatrix(rotMat);
+        //  previousObject.userData.cube.position.applyEuler(euler);
     }
 });
 meshSY.onChange(function(value) {
     if(previousObject != null){
         previousObject.scale.set(params.sx/50, value/50, params.sz/50);
-        var size = new THREE.Vector3();
         previousObject.userData.box.setFromObject(previousObject);
+        var pos = new THREE.Vector3();
+        previousObject.userData.box.getCenter(pos);
+        var size = new THREE.Vector3();
         previousObject.userData.box.getSize(size);
         previousObject.userData.cube.scale.set(size.x, size.y, size.z);
         previousObject.userData.box.getSize(previousObject.userData.obb.halfSize).multiplyScalar(0.5);
+        previousObject.userData.cube.position.copy(pos);
     }
 });
 meshSZ.onChange(function(value) {
     if(previousObject != null){
         previousObject.scale.set(params.sx/50, params.sy/50, value/50);
-        var size = new THREE.Vector3();
         previousObject.userData.box.setFromObject(previousObject);
+        var pos = new THREE.Vector3();
+        previousObject.userData.box.getCenter(pos);
+        var size = new THREE.Vector3();
         previousObject.userData.box.getSize(size);
         previousObject.userData.cube.scale.set(size.x, size.y, size.z);
         previousObject.userData.box.getSize(previousObject.userData.obb.halfSize).multiplyScalar(0.5);
+        previousObject.userData.cube.position.copy(pos);
     }
 });
 
 meshRX.onChange(function(value) {
     previousObject.rotateX(value/180);
+    previousObject.userData.box.setFromObject(previousObject);
+    var pos = new THREE.Vector3();
+    previousObject.userData.box.getCenter(pos);
+    previousObject.userData.cube.position.copy(pos);
     previousObject.userData.cube.rotateX(value/180);
     previousObject.userData.obb.basis.extractRotation(previousObject.matrixWorld);
 });
 meshRY.onChange(function(value) {
     previousObject.rotateY(value/180);
+    previousObject.userData.box.setFromObject(previousObject);
+    var pos = new THREE.Vector3();
+    previousObject.userData.box.getCenter(pos);
+    previousObject.userData.cube.position.copy(pos);
     previousObject.userData.cube.rotateY(value/180);
     previousObject.userData.obb.basis.extractRotation(previousObject.matrixWorld);
 });
 meshRZ.onChange(function(value) {
     previousObject.rotateZ(value/180);
+    previousObject.userData.box.setFromObject(previousObject);
+    var pos = new THREE.Vector3();
+    previousObject.userData.box.getCenter(pos);
+    previousObject.userData.cube.position.copy(pos);
     previousObject.userData.cube.rotateZ(value/180);
     previousObject.userData.obb.basis.extractRotation(previousObject.matrixWorld);
 });
@@ -256,6 +277,8 @@ function onDocumentMouseDown( event ) {
         var intersects = ray.intersectObjects( objectList, true );
     
         if ( intersects.length > 0 ){
+            if(previousObject != null)
+                previousObject.userData.cube.material.visible = false;
             selectedObj = intersects[0].object.userData.model;
             selectedObj.userData.cube.material.visible = true;
             selectedObjPos = selectedObj.position;
@@ -272,6 +295,7 @@ function onDocumentMouseUp( event ) {
     }else{
         previousObject = selectedObj;
         selectedObj.userData.cube.material.visible = false;
+        previousObject.userData.cube.material.visible = true;
         selectedObj = null;
     }
 }
