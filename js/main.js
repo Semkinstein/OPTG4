@@ -50,24 +50,13 @@ meshSX.onChange(function(value) {
         previousObject.scale.set(value/50, params.sy/50, params.sz/50);
         previousObject.userData.box.setFromObject(previousObject);
         var pos = new THREE.Vector3();
-        previousObject.userData.box.getCenter(pos);
-        var size = new THREE.Vector3();
+        // previousObject.userData.box.getCenter(pos);
+         var size = new THREE.Vector3();
         previousObject.userData.box.getSize(size);
-        previousObject.userData.cube.scale.set(size.x, size.y, size.z);
+        // previousObject.userData.cube.scale.set(size.x, size.y, size.z);
         previousObject.userData.box.getSize(previousObject.userData.obb.halfSize).multiplyScalar(0.5);
-        previousObject.userData.cube.position.copy(pos);
-         previousObject.updateMatrixWorld();
-
-        // // extract the rotation matrix
-        //  const rotMat = new THREE.Matrix4();
-        //  previousObject.matrixWorld.extractRotation(rotMat);
-
-        // previousObject.userData.cube.applyMatrix4(rotMat);
-        // previousObject.updateMatrixWorld();
-        // // extract the rotation
-        //  const euler = new THREE.Euler();
-        //  euler.setFromRotationMatrix(rotMat);
-        //  previousObject.userData.cube.position.applyEuler(euler);
+        // previousObject.userData.cube.position.copy(pos);
+        
     }
 });
 meshSY.onChange(function(value) {
@@ -78,9 +67,9 @@ meshSY.onChange(function(value) {
         previousObject.userData.box.getCenter(pos);
         var size = new THREE.Vector3();
         previousObject.userData.box.getSize(size);
-        previousObject.userData.cube.scale.set(size.x, size.y, size.z);
+        // previousObject.userData.cube.scale.set(size.x, size.y, size.z);
         previousObject.userData.box.getSize(previousObject.userData.obb.halfSize).multiplyScalar(0.5);
-        previousObject.userData.cube.position.copy(pos);
+        // previousObject.userData.cube.position.copy(pos);
     }
 });
 meshSZ.onChange(function(value) {
@@ -91,9 +80,9 @@ meshSZ.onChange(function(value) {
         previousObject.userData.box.getCenter(pos);
         var size = new THREE.Vector3();
         previousObject.userData.box.getSize(size);
-        previousObject.userData.cube.scale.set(size.x, size.y, size.z);
+        // previousObject.userData.cube.scale.set(size.x, size.y, size.z);
         previousObject.userData.box.getSize(previousObject.userData.obb.halfSize).multiplyScalar(0.5);
-        previousObject.userData.cube.position.copy(pos);
+        // previousObject.userData.cube.position.copy(pos);
     }
 });
 
@@ -102,8 +91,8 @@ meshRX.onChange(function(value) {
     previousObject.userData.box.setFromObject(previousObject);
     var pos = new THREE.Vector3();
     previousObject.userData.box.getCenter(pos);
-    previousObject.userData.cube.position.copy(pos);
-    previousObject.userData.cube.rotateX(value/180);
+    // previousObject.userData.cube.position.copy(pos);
+    // previousObject.userData.cube.rotateX(value/180);
     previousObject.userData.obb.basis.extractRotation(previousObject.matrixWorld);
 });
 meshRY.onChange(function(value) {
@@ -111,8 +100,8 @@ meshRY.onChange(function(value) {
     previousObject.userData.box.setFromObject(previousObject);
     var pos = new THREE.Vector3();
     previousObject.userData.box.getCenter(pos);
-    previousObject.userData.cube.position.copy(pos);
-    previousObject.userData.cube.rotateY(value/180);
+    // previousObject.userData.cube.position.copy(pos);
+    // previousObject.userData.cube.rotateY(value/180);
     previousObject.userData.obb.basis.extractRotation(previousObject.matrixWorld);
 });
 meshRZ.onChange(function(value) {
@@ -120,8 +109,8 @@ meshRZ.onChange(function(value) {
     previousObject.userData.box.setFromObject(previousObject);
     var pos = new THREE.Vector3();
     previousObject.userData.box.getCenter(pos);
-    previousObject.userData.cube.position.copy(pos);
-    previousObject.userData.cube.rotateZ(value/180);
+    // previousObject.userData.cube.position.copy(pos);
+    // previousObject.userData.cube.rotateZ(value/180);
     previousObject.userData.obb.basis.extractRotation(previousObject.matrixWorld);
 });
 
@@ -240,7 +229,7 @@ function onDocumentMouseMove( event ) {
                 selectedObj.userData.box.setFromObject(selectedObj);
                 var pos = new THREE.Vector3();
                 selectedObj.userData.box.getCenter(pos);
-                selectedObj.userData.cube.position.copy(pos);
+                //selectedObj.userData.cube.position.copy(pos);
                 selectedObj.userData.obb.position.copy(pos);
                 
                 for(var i = 0; i < objectList.length; i++){
@@ -251,7 +240,7 @@ function onDocumentMouseMove( event ) {
                             selectedObj.userData.box.setFromObject(selectedObj);
                             var pos = new THREE.Vector3();
                             selectedObj.userData.box.getCenter(pos);
-                            selectedObj.userData.cube.position.copy(pos);
+                            //selectedObj.userData.cube.position.copy(pos);
                             selectedObj.userData.obb.position.copy(pos);
                         }
                     }
@@ -463,6 +452,9 @@ function createBB(model){
     obb.basis.extractRotation(model.matrixWorld);
     //структура хранится в поле userData объекта
     model.userData.obb = obb;
+    
+    //связь трансформа обьекта с кубом
+    model.attach(cube);
 
     model.userData.cube = cube;
     cube.userData.model = model;
